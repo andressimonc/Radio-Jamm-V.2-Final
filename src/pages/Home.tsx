@@ -1,29 +1,13 @@
 import { useState, useLayoutEffect, useEffect, useCallback, useRef } from 'react';
+import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiArrowLeft } from 'react-icons/fi';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MetronomeControls } from '../components/MetronomeControls';
-import Tuner from '../components/Tuner';
-import GuitarChordVisualizer from '../components/GuitarChordVisualizer';
-import SupabaseTest from "../components/SupabaseTest"; 
+import Tuner from "../components/Tuner";
+import GuitarChordVisualizer from "../components/GuitarChordVisualizer"; 
 import '../App.css';
 
-// Note definitions for 2 octaves (C to C)
-const WHITE_KEYS = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'A', 'B', 'C'];
-
-// Position black keys between white keys
-const BLACK_KEYS = [
-  { note: 'C#', position: 0.5, octave: 1 },
-  { note: 'D#', position: 1.5, octave: 1 },
-  { note: 'F#', position: 3.5, octave: 1 },
-  { note: 'G#', position: 4.5, octave: 1 },
-  { note: 'A#', position: 5.5, octave: 1 },
-  { note: 'C#', position: 7.5, octave: 2 },
-  { note: 'D#', position: 8.5, octave: 2 },
-  { note: 'F#', position: 10.5, octave: 2 },
-  { note: 'G#', position: 11.5, octave: 2 },
-  { note: 'A#', position: 12.5, octave: 2 },
-];
+// Note definitions and music theory constants
 
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -147,7 +131,11 @@ function Home() {
   const location = useLocation();
   // Splash screen removed – always start with menu visible
   const [showMenu, setShowMenu] = useState(true);
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [selectedSound, setSelectedSound] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Animation state for UI transitions
+  const [isAnimating] = useState(false);
   const [selectedRoot, setSelectedRoot] = useState('C');
   const [isMinor, setIsMinor] = useState(false);
   const [extension, setExtension] = useState<ChordExtension>('clean');
@@ -156,6 +144,16 @@ function Home() {
   
   // Calculate current chord notes
   const chordNotes = getChordNotes(selectedRoot, isMinor, extension);
+
+  // Cleanup effect for audio resources
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   // Determine if third octave is needed based on chord notes
   useEffect(() => {
@@ -172,21 +170,21 @@ function Home() {
   }, [location]);
 
   const handleCircleClick = () => {
-    if (!isAnimating) {
-      setIsAnimating(true);
+    if (!isPlaying) {
+      setIsPlaying(true);
       setTimeout(() => {
         setShowMenu(true);
-        setIsAnimating(false);
+        setIsPlaying(false);
       }, 500);
     }
   };
 
   const handleBackClick = () => {
     // Trigger smooth transition when going back to main view
-    setIsAnimating(true);
+    setIsPlaying(true);
     setTimeout(() => {
       setShowMenu(false);
-      setIsAnimating(false);
+      setIsPlaying(false);
     }, 200);
   };
 
@@ -389,7 +387,13 @@ function Home() {
           setSelectedChordDetails(details);
           setSelectedRoot(details.root);
           setIsMinor(details.type === 'minor');
-          setExtension(details.extension || '');
+          // Ensure the extension is a valid ChordExtension or default to 'clean'
+          const validExtensions: ChordExtension[] = ['clean', '7th', '9th', '11th', '13th'];
+          const defaultExtension: ChordExtension = 'clean';
+          const newExtension = details.extension && validExtensions.includes(details.extension as any) 
+            ? details.extension as ChordExtension 
+            : defaultExtension;
+          setExtension(newExtension);
           
           console.log('*** CHORD CHANGE COMPLETE ***');
         }
@@ -402,13 +406,57 @@ function Home() {
   }, [isAutomationActive, selectedChord, progressions]);
 
   // Handle metronome play/pause
-  const handleMetronomeToggle = useCallback((isPlaying: boolean) => {
+  // Handle sound selection
+  const handleSoundSelect = async (soundType: string) => {
+    setSelectedSound(soundType);
+    
+    try {
+      // Clean up previous audio instance
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+
+      const soundFileName = `${soundType.toLowerCase()}.mp3`;
+
+      const { data: urlData } = supabase.storage
+        .from('metronome-sounds')
+        .getPublicUrl(soundFileName);
+
+      const soundUrl = urlData.publicUrl;
+
+      const audio = new Audio(soundUrl);
+      audioRef.current = audio;
+
+      audio.onerror = (e) => {
+        // Use proper error notification instead of alert
+        console.error('Error playing audio:', e);
+        // TODO: Replace with proper toast notification
+      };
+
+      await audio.play();
+
+    } catch (error) {
+      console.error('Error in handleSoundSelect:', error);
+      // TODO: Replace with proper error notification
+    }
+  };
+  
+  // Handle extension change
+  // Handle extension change with type safety
+  const handleExtensionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as ChordExtension;
+    setExtension(value);
+  };
+
+  const handleMetronomeToggle = (newIsPlaying: boolean) => {
     console.log('=== METRONOME TOGGLE HANDLER ===');
-    console.log('New play state:', isPlaying);
+    console.log('New play state:', newIsPlaying);
+    setIsPlaying(newIsPlaying);
     
-    setIsAutomationActive(isPlaying);
+    setIsAutomationActive(newIsPlaying);
     
-    if (isPlaying) {
+    if (newIsPlaying) {
       // Reset beat count when starting
       beatCountRef.current = 0;
       
@@ -435,11 +483,17 @@ function Home() {
           setSelectedChordDetails(details);
           setSelectedRoot(details.root);
           setIsMinor(details.type === 'minor');
-          setExtension(details.extension || '');
+          // Ensure the extension is a valid ChordExtension or default to 'clean'
+          const validExtensions: ChordExtension[] = ['clean', '7th', '9th', '11th', '13th'];
+          const defaultExtension: ChordExtension = 'clean';
+          const newExtension = details.extension && validExtensions.includes(details.extension as any) 
+            ? details.extension as ChordExtension 
+            : defaultExtension;
+          setExtension(newExtension);
         }
       }
     }
-  }, []);
+  };
 
   // Update handleChordClick to reset automation when manually selecting a chord
   const handleChordClick = (progressionIndex: number, chordIndex: number) => {
@@ -456,7 +510,13 @@ function Home() {
       // Update the UI state to match the selected chord
       setSelectedRoot(details.root);
       setIsMinor(details.type === 'minor');
-      setExtension(details.extension || '');
+      // Ensure the extension is a valid ChordExtension or default to 'clean'
+      const validExtensions: ChordExtension[] = ['clean', '7th', '9th', '11th', '13th'];
+      const defaultExtension: ChordExtension = 'clean';
+      const newExtension = details.extension && validExtensions.includes(details.extension as any) 
+        ? details.extension as ChordExtension 
+        : defaultExtension;
+      setExtension(newExtension);
       
       // Reset automation state when manually selecting a chord
       if (isAutomationActive) {
@@ -1059,11 +1119,6 @@ function Home() {
                   </div>
                 </div>
 
-                {/* Add the Supabase test component here */}
-                <div style={{ marginTop: 'auto' }}>
-                  <SupabaseTest />
-                </div>
-
                 {/* Metronome Sounds Container - Fixed at bottom */}
                 <div className="metronome-sounds" style={{
                   width: '100%',
@@ -1114,30 +1169,46 @@ function Home() {
                       marginTop: '5px',
                       flexWrap: 'wrap'
                     }}>
-                      {['Classic', 'Electronic'].map((sound) => (
-                        <motion.button
-                          key={sound}
-                          whileHover={{ scale: 1.03 }}
-                          whileTap={{ scale: 0.98 }}
-                          style={{
-                            padding: '15px 25px',
-                            backgroundColor: 'rgba(255, 152, 0, 0.15)',
-                            border: '1px solid rgba(255, 152, 0, 0.4)',
-                            borderRadius: '10px',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '15px',
-                            flex: '1 1 120px',
-                            maxWidth: '160px',
-                            transition: 'all 0.2s ease',
-                            ':hover': {
-                              backgroundColor: 'rgba(255, 152, 0, 0.25)'
-                            }
-                          }}
-                        >
-                          {sound}
-                        </motion.button>
-                      ))}
+                      {['Drums', 'Shaker'].map((sound) => {
+                        const isSelected = selectedSound === sound;
+                        return (
+                          <motion.button
+                            key={sound}
+                            onClick={() => handleSoundSelect(sound)}
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.98 }}
+                            style={{
+                              padding: '15px 25px',
+                              backgroundColor: isSelected 
+                                ? 'rgba(255, 152, 0, 0.4)' 
+                                : 'rgba(255, 152, 0, 0.15)',
+                              border: isSelected 
+                                ? '1px solid rgba(255, 152, 0, 0.8)' 
+                                : '1px solid rgba(255, 152, 0, 0.4)',
+                              borderRadius: '10px',
+                              color: 'white',
+                              cursor: 'pointer',
+                              fontSize: '15px',
+                              flex: '1 1 120px',
+                              maxWidth: '160px',
+                              transition: 'all 0.2s ease',
+                              boxShadow: isSelected ? '0 0 10px rgba(255, 152, 0, 0.5)' : 'none'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isSelected) {
+                                e.currentTarget.style.backgroundColor = 'rgba(255, 152, 0, 0.25)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isSelected) {
+                                e.currentTarget.style.backgroundColor = 'rgba(255, 152, 0, 0.15)';
+                              }
+                            }}
+                          >
+                            {sound}
+                          </motion.button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
