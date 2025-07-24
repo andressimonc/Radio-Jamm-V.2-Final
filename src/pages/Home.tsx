@@ -134,6 +134,12 @@ function Home() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedSound, setSelectedSound] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const selectedSoundRef = useRef<string | null>(null);
+  
+  // Keep selectedSound ref in sync
+  useEffect(() => {
+    selectedSoundRef.current = selectedSound;
+  }, [selectedSound]);
   // Animation state for UI transitions
   const [isAnimating] = useState(false);
   const [selectedRoot, setSelectedRoot] = useState('C');
@@ -405,40 +411,103 @@ function Home() {
     }
   }, [isAutomationActive, selectedChord, progressions]);
 
-  // Handle metronome play/pause
-  // Handle sound selection
+  // Handle sound selection (switches sound immediately if metronome is playing)
   const handleSoundSelect = async (soundType: string) => {
-    setSelectedSound(soundType);
+    console.log(`Selected ${soundType} sound`);
     
-    try {
-      // Clean up previous audio instance
+    // Update the selected sound immediately
+    setSelectedSound(soundType);
+    selectedSoundRef.current = soundType; // Update ref immediately
+    
+    // If metronome is playing, play the new sound immediately
+    if (isPlaying) {
+      console.log('Metronome is playing, switching to new sound');
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
-
-      const soundFileName = `${soundType.toLowerCase()}.mp3`;
-
-      const { data: urlData } = supabase.storage
-        .from('metronome-sounds')
-        .getPublicUrl(soundFileName);
-
-      const soundUrl = urlData.publicUrl;
-
-      const audio = new Audio(soundUrl);
-      audioRef.current = audio;
-
-      audio.onerror = (e) => {
-        // Use proper error notification instead of alert
-        console.error('Error playing audio:', e);
-        // TODO: Replace with proper toast notification
-      };
-
-      await audio.play();
-
+      // Small delay to ensure state updates
+      setTimeout(() => playSelectedSound(), 0);
+    }
+    
+    // Test the sound URL to make sure it's accessible
+    try {
+      const soundUrl = getSoundUrl(soundType);
+      console.log('Testing sound URL:', soundUrl);
+      const testAudio = new Audio(soundUrl);
+      testAudio.onerror = (e) => console.error('Sound URL test failed:', e);
+      testAudio.onloadeddata = () => console.log('Sound URL test successful - audio can load');
     } catch (error) {
-      console.error('Error in handleSoundSelect:', error);
-      // TODO: Replace with proper error notification
+      console.error('Error testing sound URL:', error);
+    }
+  };
+
+  // Get sound URL for a sound type
+  const getSoundUrl = (soundType: string): string => {
+    // Convert to lowercase for comparison but keep original for the filename
+    const soundTypeLower = soundType.toLowerCase();
+    const soundFileName = soundTypeLower === 'drums' ? 'Drums.wav' : 
+                          soundTypeLower === 'shaker' ? 'Shaker.wav' : 
+                          'Drums.wav'; // default to Drums if unknown type
+    console.log(`Getting URL for sound: ${soundType} -> ${soundFileName}`);
+    
+    const { data: urlData } = supabase.storage
+      .from('metronome-sounds')
+      .getPublicUrl(soundFileName);
+    
+    console.log('Generated sound URL:', urlData.publicUrl);
+    return urlData.publicUrl;
+  };
+
+  // Play the selected sound in a loop (starts when metronome starts)
+  const playSelectedSound = async () => {
+    console.log('=== PLAY SELECTED SOUND CALLED ===');
+    console.log('selectedSound:', selectedSoundRef.current);
+    
+    const currentSelectedSound = selectedSoundRef.current;
+    if (!currentSelectedSound) {
+      console.log('No sound selected, returning');
+      return;
+    }
+    
+    try {
+      const soundUrl = getSoundUrl(currentSelectedSound);
+      console.log('Playing sound from URL:', soundUrl);
+      
+      // Stop any existing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      
+      // Create new audio element
+      const audio = new Audio(soundUrl);
+      audio.loop = true; // Enable looping
+      audioRef.current = audio;
+      
+      // Add event listeners for debugging
+      audio.addEventListener('loadeddata', () => {
+        console.log('Audio loaded successfully');
+      });
+      
+      audio.addEventListener('error', (e) => {
+        console.error('Audio error:', e);
+      });
+      
+      audio.addEventListener('play', () => {
+        console.log('Audio started playing');
+      });
+      
+      audio.addEventListener('pause', () => {
+        console.log('Audio paused');
+      });
+      
+      // Start playing
+      await audio.play();
+      console.log('Audio play() called successfully');
+      
+    } catch (error) {
+      console.error('Error playing selected sound:', error);
     }
   };
   
@@ -452,6 +521,7 @@ function Home() {
   const handleMetronomeToggle = (newIsPlaying: boolean) => {
     console.log('=== METRONOME TOGGLE HANDLER ===');
     console.log('New play state:', newIsPlaying);
+    console.log('Current selectedSound:', selectedSoundRef.current);
     setIsPlaying(newIsPlaying);
     
     setIsAutomationActive(newIsPlaying);
@@ -491,6 +561,23 @@ function Home() {
             : defaultExtension;
           setExtension(newExtension);
         }
+      }
+      
+      // Start looping sound if one is selected
+      const currentSelectedSound = selectedSoundRef.current;
+      if (currentSelectedSound) {
+        console.log('Starting looping sound:', currentSelectedSound);
+        setTimeout(() => {
+          playSelectedSound();
+        }, 100);
+      } else {
+        console.log('No sound selected, only metronome will play');
+      }
+    } else {
+      // Stop any playing sound when metronome stops
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
     }
   };
