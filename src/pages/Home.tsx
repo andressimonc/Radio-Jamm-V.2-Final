@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { MetronomeControls } from '../components/MetronomeControls';
 import Tuner from '../components/Tuner';
 import GuitarChordVisualizer from '../components/GuitarChordVisualizer';
+import SupabaseTest from "../components/SupabaseTest"; 
 import '../App.css';
 
 // Note definitions for 2 octaves (C to C)
@@ -675,396 +676,490 @@ function Home() {
               }}
             >
               {/* Left: Chord Progression Generator */}
-              <div className="chord-progression-generator" style={{
-                flex: '0 0 400px', 
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column',
+                gap: '20px',
+                flex: '0 0 400px',
+                maxWidth: '400px',
+                position: 'relative',
+                minHeight: '600px'  
+              }}>
+                <div className="chord-progression-generator" style={{
+                  border: '2px solid #4CAF50',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  background: 'rgba(30, 30, 30, 0.5)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                  minWidth: '350px', 
+                  maxWidth: '400px',  
+                  marginBottom: '20px',
+                  flex: '1',  
+                  minHeight: '400px'  
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    top: '-25px',
+                    left: '20px',
+                    background: 'rgba(76, 175, 80, 0.8)',
+                    color: 'white',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    zIndex: 10
+                  }}>
+                    Chord Progressions
+                  </div>
+
+                  <div className="chord-controls" style={{
+                    background: 'rgba(40, 40, 40, 0.3)',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    padding: '15px',
+                    display: 'flex',
+                    flexWrap: 'nowrap',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    width: '100%',
+                    marginBottom: '20px',
+                    overflowX: 'auto',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    '&::-webkit-scrollbar': {
+                      display: 'none'
+                    }
+                  }}>
+                    {/* Root Note Selector */}
+                    <motion.button 
+                      className="chord-button"
+                      onClick={cycleProgressionRoot}
+                      whileTap={{ scale: 0.95 }}
+                      style={{
+                        minWidth: '60px',
+                        height: '60px',
+                        padding: '0 12px',
+                        borderRadius: '30px',
+                        background: 'rgba(255, 255, 255, 0.07)',
+                        border: '2px solid rgba(255, 255, 255, 0.15)',
+                        color: 'white',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '16px',
+                        fontWeight: '500',
+                        letterSpacing: '0.5px',
+                        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
+                        flexShrink: 0
+                      }}
+                    >
+                      <div>{progressionRoot}</div>
+                      <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '2px' }}>Root</div>
+                    </motion.button>
+
+                    {/* Major/Minor Toggle */}
+                    <motion.button 
+                      className={`chord-button ${progressionIsMinor ? 'minor' : 'major'}`}
+                      onClick={toggleProgressionMinor}
+                      whileTap={{ scale: 0.95 }}
+                      style={{
+                        minWidth: '70px',
+                        height: '60px',
+                        padding: '0 12px',
+                        borderRadius: '30px',
+                        background: progressionIsMinor 
+                          ? 'rgba(100, 100, 100, 0.2)' 
+                          : 'rgba(255, 255, 255, 0.07)',
+                        border: '2px solid rgba(255, 255, 255, 0.15)',
+                        color: 'white',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '16px',
+                        fontWeight: '500',
+                        letterSpacing: '0.5px',
+                        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
+                        flexShrink: 0
+                      }}
+                    >
+                      {progressionIsMinor ? 'Minor' : 'Major'}
+                    </motion.button>
+
+                    {/* Genre Selector */}
+                    <motion.button 
+                      className="chord-button"
+                      onClick={cycleGenre}
+                      whileTap={{ scale: 0.95 }}
+                      style={{
+                        minWidth: '80px',
+                        height: '60px',
+                        padding: '0 12px',
+                        borderRadius: '30px',
+                        background: 'rgba(255, 255, 255, 0.07)',
+                        border: '2px solid rgba(255, 255, 255, 0.15)',
+                        color: 'white',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        letterSpacing: '0.5px',
+                        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
+                        flexShrink: 0
+                      }}
+                    >
+                      {genre}
+                    </motion.button>
+
+                    {/* Search Button */}
+                    <motion.button
+                      className="chord-button active"
+                      onClick={refreshProgression}
+                      whileTap={{ scale: 0.95 }}
+                      style={{
+                        minWidth: '60px',
+                        height: '60px',
+                        padding: '0 20px',
+                        borderRadius: '30px',
+                        background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(76, 175, 80, 0.2))',
+                        border: '2px solid rgba(76, 175, 80, 0.4)',
+                        color: 'white',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '16px',
+                        fontWeight: '500',
+                        letterSpacing: '0.5px',
+                        boxShadow: '0 4px 12px rgba(76, 175, 80, 0.2)',
+                        flexShrink: 0
+                      }}
+                    >
+                      <div>Search</div>
+                      <div style={{ 
+                        fontSize: '11px', 
+                        opacity: 0.8, 
+                        marginTop: '2px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <span>↻</span> New
+                      </div>
+                    </motion.button>
+                  </div>
+
+                  <div className="chord-display-container" style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '15px',
+                    flex: 1,
+                    width: '100%',
+                    overflowY: 'auto',
+                    paddingRight: '10px'
+                  }}>
+                    <AnimatePresence>
+                      {showProgressions ? (
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -20 }}
+                          transition={{ duration: 0.3 }}
+                          style={{ 
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '15px',
+                            flex: 1
+                          }}
+                        >
+                          {progressions.map((progression, i) => (
+                            <motion.div 
+                              key={i}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: i * 0.1, duration: 0.2 }}
+                              style={{
+                                flex: 1,
+                                display: 'flex',
+                                flexDirection: 'row',
+                                justifyContent: 'space-between',
+                                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                                borderRadius: '12px',
+                                padding: '15px',
+                                border: '1px solid rgba(76, 175, 80, 0.2)'
+                              }}
+                            >
+                              <div 
+                                className="big-chord"
+                                style={{
+                                  flex: 1,
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  justifyContent: 'center',
+                                  alignItems: 'center',
+                                  padding: '30px',
+                                  borderRadius: '16px',
+                                  border: '3px solid rgba(76, 175, 80, 0.4)',
+                                  backgroundColor: 'rgba(76, 175, 80, 0.08)',
+                                  marginRight: '20px',
+                                  minHeight: '100%',
+                                  boxSizing: 'border-box',
+                                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+                                }}>
+                                {selectedChord?.progressionIndex === i && progressions[selectedChord.progressionIndex]?.[selectedChord.chordIndex] && (
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ duration: 0.2 }}
+                                    style={{
+                                      fontSize: '5.5rem',
+                                      fontWeight: 'bold',
+                                      color: 'rgba(255, 255, 255, 0.95)',
+                                      textShadow: '0 4px 15px rgba(76, 175, 80, 0.6)',
+                                      textAlign: 'center',
+                                      lineHeight: 1,
+                                      margin: '10px 0'
+                                    }}
+                                  >
+                                    {progressions[selectedChord.progressionIndex][selectedChord.chordIndex]}
+                                  </motion.div>
+                                )}
+                              </div>
+                              
+                              <div 
+                                className="vertical-chords"
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '8px',
+                                  alignItems: 'center',
+                                  marginLeft: '15px',
+                                  width: '90px' // Increased width to better accommodate three-character chords
+                                }}>
+                                {progression.slice(0, 4).map((chord, chordIndex) => {
+                                  // Calculate font size based on chord length and characters
+                                  const chordLength = chord.length;
+                                  let fontSize = '1rem'; // Base size for 1-2 characters
+                                  
+                                  // Adjust for three-character chords (like C#m, D#m, etc.)
+                                  if (chordLength === 3 && chord.includes('m')) {
+                                    fontSize = '0.9rem';
+                                  } 
+                                  // Adjust for longer chords (4+ characters)
+                                  else if (chordLength > 3) {
+                                    fontSize = '0.85rem';
+                                  }
+
+                                  return (
+                                    <motion.div 
+                                      key={chordIndex}
+                                      whileHover={{ scale: 1.05 }}
+                                      whileTap={{ scale: 0.95 }}
+                                      onClick={() => handleChordClick(i, chordIndex)}
+                                      style={{
+                                        minWidth: '70px',
+                                        width: '100%',
+                                        maxWidth: '90px',
+                                        height: '60px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        backgroundColor: isChordSelected(i, chordIndex) 
+                                          ? 'rgba(76, 175, 80, 0.4)'
+                                          : 'rgba(76, 175, 80, 0.1)',
+                                        borderRadius: '8px',
+                                        border: `1px solid ${
+                                          isChordSelected(i, chordIndex) 
+                                            ? 'rgba(76, 175, 80, 0.8)'
+                                            : 'rgba(76, 175, 80, 0.4)'
+                                        }`,
+                                        fontSize: fontSize,
+                                        fontWeight: '500',
+                                        color: isChordSelected(i, chordIndex) 
+                                          ? 'white' 
+                                          : 'rgba(255, 255, 255, 0.7)',
+                                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        opacity: selectedChord === null || isChordSelected(i, chordIndex) ? 1 : 0.5,
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'visible',
+                                        padding: '0 10px',
+                                        textAlign: 'center',
+                                        boxSizing: 'border-box',
+                                        letterSpacing: '0.5px' // Slightly increase letter spacing for better readability
+                                      }}
+                                    >
+                                      {chord}
+                                    </motion.div>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
+                          ))}
+                          
+                          {/* Refresh Button - positioned underneath all progressions */}
+                          <motion.div
+                            style={{
+                              marginTop: '20px',
+                              display: 'flex',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <motion.button
+                              style={{
+                                backgroundColor: 'rgba(76, 175, 80, 0.2)',
+                                color: 'white',
+                                padding: '10px 24px',
+                                borderRadius: '24px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                cursor: 'pointer',
+                                border: '1px solid rgba(76, 175, 80, 0.4)',
+                                fontSize: '14px',
+                                fontWeight: 500
+                              }}
+                              onClick={refreshProgression}
+                              whileTap={{ scale: 0.95 }}
+                              whileHover={{ 
+                                backgroundColor: 'rgba(76, 175, 80, 0.3)',
+                                boxShadow: '0 0 10px rgba(76, 175, 80, 0.3)'
+                              }}
+                            >
+                              <span style={{ marginRight: '8px' }}>↻</span> New Progressions
+                            </motion.button>
+                          </motion.div>
+                        </motion.div>
+                      ) : (
+                        <div style={{
+                          flex: 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'rgba(255, 255, 255, 0.5)',
+                          fontSize: '14px',
+                          textAlign: 'center',
+                          padding: '20px',
+                          gap: '20px'
+                        }}>
+                          <div>Click the search button to generate chord progressions</div>
+                        </div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+
+                {/* Add the Supabase test component here */}
+                <div style={{ marginTop: 'auto' }}>
+                  <SupabaseTest />
+                </div>
+
+                {/* Metronome Sounds Container - Fixed at bottom */}
+                <div className="metronome-sounds" style={{
+                  width: '100%',
+                  height: '180px',
+                  border: '2px solid #FF9800',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  background: 'rgba(30, 30, 30, 0.5)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+                  position: 'relative',  
+                  marginTop: 'auto',     
+                  zIndex: 10
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    top: '-25px',
+                    left: '20px',
+                    background: '#FF9800',
+                    color: 'white',
+                    padding: '2px 12px',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    zIndex: 10
+                  }}>
+                    Metronome Sounds
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    height: '100%',
+                    gap: '15px'
+                  }}>
+                    <div style={{
+                      color: 'white',
+                      fontSize: '14px',
+                      textAlign: 'center',
+                      opacity: 0.8,
+                      marginBottom: '5px'
+                    }}>
+                      Select a sound:
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      gap: '20px',
+                      marginTop: '5px',
+                      flexWrap: 'wrap'
+                    }}>
+                      {['Classic', 'Electronic'].map((sound) => (
+                        <motion.button
+                          key={sound}
+                          whileHover={{ scale: 1.03 }}
+                          whileTap={{ scale: 0.98 }}
+                          style={{
+                            padding: '15px 25px',
+                            backgroundColor: 'rgba(255, 152, 0, 0.15)',
+                            border: '1px solid rgba(255, 152, 0, 0.4)',
+                            borderRadius: '10px',
+                            color: 'white',
+                            cursor: 'pointer',
+                            fontSize: '15px',
+                            flex: '1 1 120px',
+                            maxWidth: '160px',
+                            transition: 'all 0.2s ease',
+                            ':hover': {
+                              backgroundColor: 'rgba(255, 152, 0, 0.25)'
+                            }
+                          }}
+                        >
+                          {sound}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Middle: Chords Container */}
+              <div className="chords-container" style={{
+                flex: '1 1 45%',
+                minWidth: '500px',
                 height: '100%',
-                border: '2px solid #4CAF50',
+                border: '2px solid #FF5722',
                 borderRadius: '16px',
                 padding: '20px',
                 background: 'rgba(30, 30, 30, 0.5)',
                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
                 display: 'flex',
                 flexDirection: 'column',
-                overflow: 'hidden',
-                minWidth: '350px', 
-                maxWidth: '400px'  
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '-25px',
-                  left: '20px',
-                  background: 'rgba(76, 175, 80, 0.8)',
-                  color: 'white',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  zIndex: 10
-                }}>
-                  Chord Progressions
-                </div>
-
-                <div className="chord-controls" style={{
-                  background: 'rgba(40, 40, 40, 0.3)',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  padding: '15px',
-                  display: 'flex',
-                  flexWrap: 'nowrap',
-                  justifyContent: 'center',
-                  gap: '12px',
-                  width: '100%',
-                  marginBottom: '20px',
-                  overflowX: 'auto',
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none',
-                  '&::-webkit-scrollbar': {
-                    display: 'none'
-                  }
-                }}>
-                  {/* Root Note Selector */}
-                  <motion.button 
-                    className="chord-button"
-                    onClick={cycleProgressionRoot}
-                    whileTap={{ scale: 0.95 }}
-                    style={{
-                      minWidth: '60px',
-                      height: '60px',
-                      padding: '0 12px',
-                      borderRadius: '30px',
-                      background: 'rgba(255, 255, 255, 0.07)',
-                      border: '2px solid rgba(255, 255, 255, 0.15)',
-                      color: 'white',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '16px',
-                      fontWeight: '500',
-                      letterSpacing: '0.5px',
-                      boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
-                      flexShrink: 0
-                    }}
-                  >
-                    <div>{progressionRoot}</div>
-                    <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '2px' }}>Root</div>
-                  </motion.button>
-
-                  {/* Major/Minor Toggle */}
-                  <motion.button 
-                    className={`chord-button ${progressionIsMinor ? 'minor' : 'major'}`}
-                    onClick={toggleProgressionMinor}
-                    whileTap={{ scale: 0.95 }}
-                    style={{
-                      minWidth: '70px',
-                      height: '60px',
-                      padding: '0 12px',
-                      borderRadius: '30px',
-                      background: progressionIsMinor 
-                        ? 'rgba(100, 100, 100, 0.2)' 
-                        : 'rgba(255, 255, 255, 0.07)',
-                      border: '2px solid rgba(255, 255, 255, 0.15)',
-                      color: 'white',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '16px',
-                      fontWeight: '500',
-                      letterSpacing: '0.5px',
-                      boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
-                      flexShrink: 0
-                    }}
-                  >
-                    {progressionIsMinor ? 'Minor' : 'Major'}
-                  </motion.button>
-
-                  {/* Genre Selector */}
-                  <motion.button 
-                    className="chord-button"
-                    onClick={cycleGenre}
-                    whileTap={{ scale: 0.95 }}
-                    style={{
-                      minWidth: '80px',
-                      height: '60px',
-                      padding: '0 12px',
-                      borderRadius: '30px',
-                      background: 'rgba(255, 255, 255, 0.07)',
-                      border: '2px solid rgba(255, 255, 255, 0.15)',
-                      color: 'white',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      letterSpacing: '0.5px',
-                      boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
-                      flexShrink: 0
-                    }}
-                  >
-                    {genre}
-                  </motion.button>
-
-                  {/* Search Button */}
-                  <motion.button
-                    className="chord-button active"
-                    onClick={refreshProgression}
-                    whileTap={{ scale: 0.95 }}
-                    style={{
-                      minWidth: '60px',
-                      height: '60px',
-                      padding: '0 20px',
-                      borderRadius: '30px',
-                      background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(76, 175, 80, 0.2))',
-                      border: '2px solid rgba(76, 175, 80, 0.4)',
-                      color: 'white',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '16px',
-                      fontWeight: '500',
-                      letterSpacing: '0.5px',
-                      boxShadow: '0 4px 12px rgba(76, 175, 80, 0.2)',
-                      flexShrink: 0
-                    }}
-                  >
-                    <div>Search</div>
-                    <div style={{ 
-                      fontSize: '11px', 
-                      opacity: 0.8, 
-                      marginTop: '2px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      <span>↻</span> New
-                    </div>
-                  </motion.button>
-                </div>
-
-                <div className="chord-display-container" style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '15px',
-                  flex: 1,
-                  width: '100%',
-                  overflowY: 'auto',
-                  paddingRight: '10px'
-                }}>
-                  <AnimatePresence>
-                    {showProgressions ? (
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.3 }}
-                        style={{ 
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '15px',
-                          flex: 1
-                        }}
-                      >
-                        {progressions.map((progression, i) => (
-                          <motion.div 
-                            key={i}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.1, duration: 0.2 }}
-                            style={{
-                              flex: 1,
-                              display: 'flex',
-                              flexDirection: 'row',
-                              justifyContent: 'space-between',
-                              backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                              borderRadius: '12px',
-                              padding: '15px',
-                              border: '1px solid rgba(76, 175, 80, 0.2)'
-                            }}
-                          >
-                            <div 
-                              className="big-chord"
-                              style={{
-                                flex: 1,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                padding: '30px',
-                                borderRadius: '16px',
-                                border: '3px solid rgba(76, 175, 80, 0.4)',
-                                backgroundColor: 'rgba(76, 175, 80, 0.08)',
-                                marginRight: '20px',
-                                minHeight: '100%',
-                                boxSizing: 'border-box',
-                                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
-                              }}>
-                              {selectedChord?.progressionIndex === i && progressions[selectedChord.progressionIndex]?.[selectedChord.chordIndex] && (
-                                <motion.div
-                                  initial={{ opacity: 0, scale: 0.9 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  transition={{ duration: 0.2 }}
-                                  style={{
-                                    fontSize: '5.5rem',
-                                    fontWeight: 'bold',
-                                    color: 'rgba(255, 255, 255, 0.95)',
-                                    textShadow: '0 4px 15px rgba(76, 175, 80, 0.6)',
-                                    textAlign: 'center',
-                                    lineHeight: 1,
-                                    margin: '10px 0'
-                                  }}
-                                >
-                                  {progressions[selectedChord.progressionIndex][selectedChord.chordIndex]}
-                                </motion.div>
-                              )}
-                            </div>
-                            
-                            <div 
-                              className="vertical-chords"
-                              style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '8px',
-                                alignItems: 'center',
-                                marginLeft: '15px',
-                                width: '90px' // Increased width to better accommodate three-character chords
-                              }}>
-                              {progression.slice(0, 4).map((chord, chordIndex) => {
-                                // Calculate font size based on chord length and characters
-                                const chordLength = chord.length;
-                                let fontSize = '1rem'; // Base size for 1-2 characters
-                                
-                                // Adjust for three-character chords (like C#m, D#m, etc.)
-                                if (chordLength === 3 && chord.includes('m')) {
-                                  fontSize = '0.9rem';
-                                } 
-                                // Adjust for longer chords (4+ characters)
-                                else if (chordLength > 3) {
-                                  fontSize = '0.85rem';
-                                }
-
-                                return (
-                                  <motion.div 
-                                    key={chordIndex}
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => handleChordClick(i, chordIndex)}
-                                    style={{
-                                      minWidth: '70px',
-                                      width: '100%',
-                                      maxWidth: '90px',
-                                      height: '60px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      backgroundColor: isChordSelected(i, chordIndex) 
-                                        ? 'rgba(76, 175, 80, 0.4)'
-                                        : 'rgba(76, 175, 80, 0.1)',
-                                      borderRadius: '8px',
-                                      border: `1px solid ${
-                                        isChordSelected(i, chordIndex) 
-                                          ? 'rgba(76, 175, 80, 0.8)'
-                                          : 'rgba(76, 175, 80, 0.4)'
-                                      }`,
-                                      fontSize: fontSize,
-                                      fontWeight: '500',
-                                      color: isChordSelected(i, chordIndex) 
-                                        ? 'white' 
-                                        : 'rgba(255, 255, 255, 0.7)',
-                                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
-                                      cursor: 'pointer',
-                                      transition: 'all 0.2s ease',
-                                      opacity: selectedChord === null || isChordSelected(i, chordIndex) ? 1 : 0.5,
-                                      whiteSpace: 'nowrap',
-                                      overflow: 'visible',
-                                      padding: '0 10px',
-                                      textAlign: 'center',
-                                      boxSizing: 'border-box',
-                                      letterSpacing: '0.5px' // Slightly increase letter spacing for better readability
-                                    }}
-                                  >
-                                    {chord}
-                                  </motion.div>
-                                );
-                              })}
-                            </div>
-                          </motion.div>
-                        ))}
-                        
-                        {/* Refresh Button - positioned underneath all progressions */}
-                        <motion.div
-                          style={{
-                            marginTop: '20px',
-                            display: 'flex',
-                            justifyContent: 'center'
-                          }}
-                        >
-                          <motion.button
-                            style={{
-                              backgroundColor: 'rgba(76, 175, 80, 0.2)',
-                              color: 'white',
-                              padding: '10px 24px',
-                              borderRadius: '24px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              cursor: 'pointer',
-                              border: '1px solid rgba(76, 175, 80, 0.4)',
-                              fontSize: '14px',
-                              fontWeight: 500
-                            }}
-                            onClick={refreshProgression}
-                            whileTap={{ scale: 0.95 }}
-                            whileHover={{ 
-                              backgroundColor: 'rgba(76, 175, 80, 0.3)',
-                              boxShadow: '0 0 10px rgba(76, 175, 80, 0.3)'
-                            }}
-                          >
-                            <span style={{ marginRight: '8px' }}>↻</span> New Progressions
-                          </motion.button>
-                        </motion.div>
-                      </motion.div>
-                    ) : (
-                      <div style={{
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'rgba(255, 255, 255, 0.5)',
-                        fontSize: '14px',
-                        textAlign: 'center',
-                        padding: '20px',
-                        gap: '20px'
-                      }}>
-                        <div>Click the search button to generate chord progressions</div>
-                      </div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-
-              {/* Middle: Chords Container */}
-              <div className="chords-container" style={{
-                flex: '0 0 700px', 
-                height: 'auto',
-                minHeight: '600px',
-                border: '2px solid #FF5722',
-                borderRadius: '16px',
-                padding: '25px',
-                background: 'rgba(30, 30, 30, 0.5)',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
-                display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
                 gap: '20px',
-                margin: '0 20px', 
                 position: 'relative',
-                overflow: 'hidden'
+                outline: '1px solid #FF5722',
+                outlineOffset: '5px'
               }}>
                 <div style={{
                   position: 'absolute',
@@ -1076,7 +1171,7 @@ function Home() {
                   borderRadius: '4px',
                   fontSize: '12px'
                 }}>
-                  Middle Container (700px)
+                  Middle Container (45%)
                 </div>
                 {/* Visualizer Container */}
                 <div className="visualizer-container" style={{
