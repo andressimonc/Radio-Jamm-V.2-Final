@@ -624,25 +624,13 @@ function Home() {
 
   return (
     <motion.div 
-      className="app-container"
+      className="app-container root-container"
       initial="initial"
       animate="animate"
       exit="exit"
       variants={pageVariants}
       transition={pageTransition}
     >
-      {showMenu && (
-        <motion.button 
-          className="back-button"
-          onClick={handleBackClick}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3 }}
-        >
-          <FiArrowLeft size={24} />
-        </motion.button>
-      )}
       <AnimatePresence mode="wait">
         {!showMenu ? (
           <motion.div
