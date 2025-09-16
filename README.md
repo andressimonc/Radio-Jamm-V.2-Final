@@ -1,5 +1,5 @@
 Radio Jamm
-Video Demo: <URL HERE>
+Video Demo: https://www.youtube.com/watch?v=8nXfiocXnoU
 Description:
 Radio Jamm is a comprehensive web-based music jam assistant designed to help musicians of all skill levels improve their musical abilities through interactive learning tools. Built as a React application with TypeScript and Vite, this project combines chord learning, rhythm training, and creative jamming capabilities into a single, intuitive platform that makes music education both engaging and accessible.
 
