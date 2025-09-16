@@ -135,6 +135,9 @@ function Home() {
   const [selectedSound, setSelectedSound] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const selectedSoundRef = useRef<string | null>(null);
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioBuffersRef = useRef<Record<string, AudioBuffer>>({});
   
   // Keep selectedSound ref in sync
   useEffect(() => {
@@ -337,10 +340,95 @@ function Home() {
     selectedChordRef.current = selectedChord;
   }, [selectedChord]);
 
+  // Function to stop any currently playing sound
+  const stopCurrentSound = () => {
+    if (currentSourceRef.current) {
+      try {
+        currentSourceRef.current.stop();
+        currentSourceRef.current.disconnect();
+      } catch (e) {
+        console.log('Error stopping sound:', e);
+      }
+      currentSourceRef.current = null;
+    }
+  };
+
+  // Function to load a sound into an AudioBuffer
+  const loadSound = async (soundType: string): Promise<AudioBuffer | null> => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      
+      // Check if we already loaded this sound
+      if (audioBuffersRef.current[soundType]) {
+        return audioBuffersRef.current[soundType];
+      }
+      
+      const soundUrl = getSoundUrl(soundType);
+      const response = await fetch(soundUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+      
+      // Cache the buffer
+      audioBuffersRef.current[soundType] = audioBuffer;
+      return audioBuffer;
+      
+    } catch (error) {
+      console.error('Error loading sound:', error);
+      return null;
+    }
+  };
+
+  // Function to play the sound once
+  const playSoundOnce = async (soundType: string) => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      
+      // Make sure the context is running (required on some browsers)
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+      
+      // Stop any currently playing sound
+      stopCurrentSound();
+      
+      const buffer = await loadSound(soundType);
+      if (!buffer) return;
+      
+      const source = audioContextRef.current.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContextRef.current.destination);
+      
+      // Store the source so we can stop it later
+      currentSourceRef.current = source;
+      
+      // Set up cleanup when the sound finishes
+      source.onended = () => {
+        if (currentSourceRef.current === source) {
+          currentSourceRef.current = null;
+        }
+      };
+      
+      source.start(0);
+      
+    } catch (error) {
+      console.error('Error playing sound:', error);
+    }
+  };
+
   // Handle metronome downbeat for chord progression
   const handleMetronomeDownbeat = useCallback((beatCount: number) => {
     console.log('=== HOME COMPONENT DOWNBEAT HANDLER ===');
     console.log('Beat count received:', beatCount);
+    
+    // Play sound only on beat 0 (downbeat)
+    if (beatCount % 4 === 0 && selectedSoundRef.current) {
+      console.log('Downbeat - playing sound');
+      playSoundOnce(selectedSoundRef.current);
+    }
     
     // Get current values from state to ensure we have the latest
     const currentIsAutomationActive = isAutomationActive;
@@ -415,19 +503,20 @@ function Home() {
   const handleSoundSelect = async (soundType: string) => {
     console.log(`Selected ${soundType} sound`);
     
-    // Update the selected sound immediately
-    setSelectedSound(soundType);
-    selectedSoundRef.current = soundType; // Update ref immediately
+    // Stop any currently playing sound
+    stopCurrentSound();
     
-    // If metronome is playing, play the new sound immediately
+    // Update the selected sound
+    setSelectedSound(soundType);
+    selectedSoundRef.current = soundType;
+    
+    // Preload the sound if metronome is playing
     if (isPlaying) {
-      console.log('Metronome is playing, switching to new sound');
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
+      try {
+        await loadSound(soundType);
+      } catch (error) {
+        console.error('Error preloading sound:', error);
       }
-      // Small delay to ensure state updates
-      setTimeout(() => playSelectedSound(), 0);
     }
     
     // Test the sound URL to make sure it's accessible
@@ -459,58 +548,6 @@ function Home() {
     return urlData.publicUrl;
   };
 
-  // Play the selected sound in a loop (starts when metronome starts)
-  const playSelectedSound = async () => {
-    console.log('=== PLAY SELECTED SOUND CALLED ===');
-    console.log('selectedSound:', selectedSoundRef.current);
-    
-    const currentSelectedSound = selectedSoundRef.current;
-    if (!currentSelectedSound) {
-      console.log('No sound selected, returning');
-      return;
-    }
-    
-    try {
-      const soundUrl = getSoundUrl(currentSelectedSound);
-      console.log('Playing sound from URL:', soundUrl);
-      
-      // Stop any existing audio
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      
-      // Create new audio element
-      const audio = new Audio(soundUrl);
-      audio.loop = true; // Enable looping
-      audioRef.current = audio;
-      
-      // Add event listeners for debugging
-      audio.addEventListener('loadeddata', () => {
-        console.log('Audio loaded successfully');
-      });
-      
-      audio.addEventListener('error', (e) => {
-        console.error('Audio error:', e);
-      });
-      
-      audio.addEventListener('play', () => {
-        console.log('Audio started playing');
-      });
-      
-      audio.addEventListener('pause', () => {
-        console.log('Audio paused');
-      });
-      
-      // Start playing
-      await audio.play();
-      console.log('Audio play() called successfully');
-      
-    } catch (error) {
-      console.error('Error playing selected sound:', error);
-    }
-  };
-  
   // Handle extension change
   // Handle extension change with type safety
   const handleExtensionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -518,12 +555,34 @@ function Home() {
     setExtension(value);
   };
 
+  // Handle metronome toggle
   const handleMetronomeToggle = (newIsPlaying: boolean) => {
     console.log('=== METRONOME TOGGLE HANDLER ===');
     console.log('New play state:', newIsPlaying);
-    console.log('Current selectedSound:', selectedSoundRef.current);
-    setIsPlaying(newIsPlaying);
     
+    if (!newIsPlaying) {
+      // Stop any playing sound when metronome stops
+      stopCurrentSound();
+      
+      // Close audio context if it exists
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().then(() => {
+          audioContextRef.current = null;
+        }).catch(console.error);
+      }
+    } else {
+      // Initialize audio context on play
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      
+      // Preload the selected sound if any
+      if (selectedSoundRef.current) {
+        loadSound(selectedSoundRef.current);
+      }
+    }
+    
+    setIsPlaying(newIsPlaying);
     setIsAutomationActive(newIsPlaying);
     
     if (newIsPlaying) {
@@ -561,23 +620,6 @@ function Home() {
             : defaultExtension;
           setExtension(newExtension);
         }
-      }
-      
-      // Start looping sound if one is selected
-      const currentSelectedSound = selectedSoundRef.current;
-      if (currentSelectedSound) {
-        console.log('Starting looping sound:', currentSelectedSound);
-        setTimeout(() => {
-          playSelectedSound();
-        }, 100);
-      } else {
-        console.log('No sound selected, only metronome will play');
-      }
-    } else {
-      // Stop any playing sound when metronome stops
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
       }
     }
   };
